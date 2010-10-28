@@ -36,7 +36,7 @@ function! s:gitDiff()
   let lines = getline(1, 1000)
   ruby << EOF
     lines = VIM::evaluate('lines')
-    File.open(VIM::evaluate('newFilePath'), 'w') { |f| f.write(lines.join("\n")) }
+    File.open(VIM::evaluate('newFilePath'), 'w') { |f| f.write([lines].join("\n")+"\n") }
 EOF
 
   let out = system('cd ' . g:scmBufDir . ' && /usr/bin/diff ' . oldFilePath . ' ' . newFilePath)

@@ -33,11 +33,7 @@ function! s:gitDiff()
     return
   endif
 
-  let lines = getline(1, 1000)
-  ruby << EOF
-    lines = VIM::evaluate('lines')
-    File.open(VIM::evaluate('newFilePath'), 'w') { |f| f.write([lines].join("\n")+"\n") }
-EOF
+  execute "silent write! " . fnameescape(newFilePath)
 
   let out = system('cd ' . g:scmBufDir . ' && /usr/bin/diff ' . oldFilePath . ' ' . newFilePath)
   " let out = system('cd ' . g:scmBufDir . ' && /usr/bin/diff ' . oldFilePath . ' ' . newFilePath . ' | grep "^[0-9]\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\(,[0-9]\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\)\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\?[acd][0-9]\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\(,[0-9]\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\)\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\?"')

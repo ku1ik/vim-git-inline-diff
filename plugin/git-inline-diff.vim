@@ -1,13 +1,25 @@
 map <silent> <Leader>d :call <SID>gitDiff()<CR>
 
 hi SignColumn guifg=#7c7c7c guibg=#000000 gui=NONE
-hi scmLineAdded guibg=#65b042 guifg=#65b042
-hi scmLineChanged guibg=#3387cc guifg=#3387cc
+hi scmLineAdded guifg=#65b042
+hi scmLineChanged guifg=#3387cc
 hi scmLineRemoved guifg=#ff0000
 
-sign define scmLineAdded text=_ texthl=scmLineAdded
-sign define scmLineChanged text=_ texthl=scmLineChanged
-sign define scmLineRemoved text=__ texthl=scmLineRemoved
+if !exists("g:git_diff_added_symbol")
+  let g:git_diff_added_symbol = '+'
+endif
+
+if !exists("g:git_diff_removed_symbol")
+  let g:git_diff_removed_symbol = '-'
+endif
+
+if !exists("g:git_diff_changed_symbol")
+  let g:git_diff_changed_symbol = '-+'
+endif
+
+exe 'sign define scmLineAdded text='.g:git_diff_added_symbol.' texthl=scmLineAdded'
+exe 'sign define scmLineChanged text='.g:git_diff_changed_symbol.' texthl=scmLineChanged'
+exe 'sign define scmLineRemoved text='.g:git_diff_removed_symbol.' texthl=scmLineRemoved'
 sign define scmGhost
 
 ruby << EOF
@@ -35,12 +47,11 @@ function! s:gitDiff()
 
   execute "silent write! " . fnameescape(newFilePath)
 
-  let out = system('cd ' . g:scmBufDir . ' && /usr/bin/diff ' . oldFilePath . ' ' . newFilePath)
-  " let out = system('cd ' . g:scmBufDir . ' && /usr/bin/diff ' . oldFilePath . ' ' . newFilePath . ' | grep "^[0-9]\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\(,[0-9]\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\)\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\?[acd][0-9]\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\(,[0-9]\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\)\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\?"')
+  let out = system('cd ' . g:scmBufDir . ' && /usr/bin/diff -u ' . oldFilePath . ' ' . newFilePath)
 
   ruby << EOF
   file = VIM::evaluate("g:scmBufPath")
-  diff = VIM::evaluate('out')
+  diff = VIM::evaluate('out').split("\n")
 
   # workaround for flickering signs column
   VIM::command("sign place 1 line=1 name=scmGhost file=#{file}") unless $SIGNS[file].empty?
@@ -51,25 +62,48 @@ function! s:gitDiff()
   end
   $SIGNS[file] = []
 
-  diff.split("\n").each do |change|
-    next unless change =~ /^\d+(?:,\d+)*([acd])(\d+(?:,\d+)*)$/
-    lines = $2.split(",")
 
-    range = (lines[0].to_i..(lines[1] || lines[0]).to_i)
-
-    name = case $1
-    when 'a'
-      'scmLineAdded'
-    when 'c'
-      'scmLineChanged'
-    when 'd'
-      'scmLineRemoved'
+  chunks = []
+  annotations = {}
+  counter_since_last_chunk = 0
+  deletion = false
+  diff.each do |line|
+    next if line =~ /^[\+\-]{3}/
+    chunk = line.match(/^@@ -([0-9]+)(,([0-9]+))? \+([0-9]+)(,([0-9]+))? @@/)
+    if chunk
+      chunks << {
+        :line_before => chunk[1].to_i,
+        :len_before => chunk[3].to_i,
+        :line_after => chunk[4].to_i,
+        :len_after => chunk[6].to_i
+      }
+      counter_since_last_chunk = 0
+      deletion = false
+    else
+      counter_since_last_chunk += 1
     end
 
-    range.each do |n|
-      VIM::command("sign place #{n} line=#{n} name=#{name} file=#{file}")
-      $SIGNS[file] << n
+
+    line_in_current_file = chunks.last[:line_after] + counter_since_last_chunk - 1
+
+    case line[0,1]
+    when '-'
+      annotations[line_in_current_file] = 'scmLineRemoved'
+      deletion = true
+      counter_since_last_chunk -= 1
+    when '+'
+      if deletion && annotations[line_in_current_file]
+        annotations[line_in_current_file] = 'scmLineChanged'
+      else
+        annotations[line_in_current_file] = 'scmLineAdded'
+      end
+      deletion = false
     end
+  end
+
+  annotations.each do |line,sign|
+    VIM::command("sign place #{line} line=#{line} name=#{sign} file=#{file}")
+    $SIGNS[file] << line
   end
 
   # workaround for flickering signs column

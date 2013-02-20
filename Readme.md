@@ -2,6 +2,9 @@
 
 Adds signs on the left hand of your open buffer which mark the changed lines.
 
+## Example
+![_assets/example.png]
+
 ## Configuration
 
 ```vim

@@ -5,9 +5,21 @@ hi scmLineAdded guifg=#65b042
 hi scmLineChanged guifg=#3387cc
 hi scmLineRemoved guifg=#ff0000
 
-sign define scmLineAdded text=+ texthl=scmLineAdded
-sign define scmLineChanged text=<> texthl=scmLineChanged
-sign define scmLineRemoved text=- texthl=scmLineRemoved
+if !exists("g:git_diff_added_symbol")
+  let g:git_diff_added_symbol = '+'
+endif
+
+if !exists("g:git_diff_removed_symbol")
+  let g:git_diff_removed_symbol = '-'
+endif
+
+if !exists("g:git_diff_changed_symbol")
+  let g:git_diff_changed_symbol = '-+'
+endif
+
+exe 'sign define scmLineAdded text='.g:git_diff_added_symbol.' texthl=scmLineAdded'
+exe 'sign define scmLineChanged text='.g:git_diff_changed_symbol.' texthl=scmLineChanged'
+exe 'sign define scmLineRemoved text='.g:git_diff_removed_symbol.' texthl=scmLineRemoved'
 sign define scmGhost
 
 ruby << EOF

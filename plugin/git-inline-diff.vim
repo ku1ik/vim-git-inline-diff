@@ -78,6 +78,7 @@ function! s:gitDiff()
         :len_after => chunk[6].to_i
       }
       counter_since_last_chunk = 0
+      deletion = false
     else
       counter_since_last_chunk += 1
     end
@@ -87,7 +88,6 @@ function! s:gitDiff()
 
     case line[0,1]
     when '-'
-      next if deletion
       annotations[line_in_current_file] = 'scmLineRemoved'
       deletion = true
       counter_since_last_chunk -= 1
